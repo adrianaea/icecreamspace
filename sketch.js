@@ -8,15 +8,16 @@ let textAlpha = 0;
 let planetFlavors = [];
 let previousFlavorSelection = "";
 let coneImage;
+let draggingPlanet = null;
 
 const flavorAssets = [
-  { name: "Berry", path: "assets/berry.PNG", coreSize: 120 },
-  { name: "Candy", path: "assets/candy.PNG", coreSize: 120 },
+  { name: "Strawberry", path: "assets/berry.PNG", coreSize: 120 },
+  { name: "Cotton Candy", path: "assets/candy.PNG", coreSize: 120 },
   { name: "Chocolate", path: "assets/chocolate.PNG", coreSize: 120 },
   { name: "Coffee", path: "assets/coffee.png", coreSize: 120 },
   { name: "Cookie Dough", path: "assets/dough.PNG", coreSize: 120 },
-  { name: "Mint", path: "assets/mint.PNG", coreSize: 120 },
-  { name: "Monster", path: "assets/monster.PNG", coreSize: 120 },
+  { name: "Mint Chocolate Chip", path: "assets/mint.PNG", coreSize: 120 },
+  { name: "Cookie Monster", path: "assets/monster.PNG", coreSize: 120 },
   { name: "Oreo", path: "assets/oreo.PNG", coreSize: 120 },
   { name: "Rocky Road", path: "assets/rocky.png", coreSize: 120 },
   { name: "Vanilla", path: "assets/vanilla.PNG", coreSize: 120 },
@@ -210,12 +211,126 @@ function draw() {
     pop();
 
     // Drive rotation frames over time smoothly
-    p.angle += p.speed;
+    if (draggingPlanet !== p) p.angle += p.speed;
   }
 
   // Pull coordinate scope back to top-left mode for typographic layouts
   resetMatrix();
+  cursor(hoveredPlanet ? (draggingPlanet ? 'grabbing' : 'grab') : ARROW);
   drawInterfaceMarkup(hoveredPlanet);
+}
+
+function mousePressed() {
+  // Check back to front so the visually topmost planet is the one grabbed.
+  for (let i = activePlanets.length - 1; i >= 0; i--) {
+    const planet = activePlanets[i];
+    if (dist(mouseX, mouseY, planet.currentX, planet.currentY) <= planet.size / 2 + 8) {
+      draggingPlanet = planet;
+      cursor('grabbing');
+      return false;
+    }
+  }
+}
+
+function mouseDragged() {
+  if (!draggingPlanet) return;
+
+  // Keep the planet on its own orbit and move it to the pointer's angle.
+  const dx = mouseX - width / 2;
+  const dy = mouseY - height / 2;
+  draggingPlanet.angle = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+  draggingPlanet.currentX = width / 2 + draggingPlanet.distance * cos(draggingPlanet.angle);
+  draggingPlanet.currentY = height / 2 + draggingPlanet.distance * sin(draggingPlanet.angle);
+  return false;
+}
+
+function mouseReleased() {
+  draggingPlanet = null;
+  cursor(ARROW);
+}
+
+function drawWeatherAnimation(planet, centerX, centerY, radius) {
+  const t = frameCount;
+  push();
+  translate(centerX, centerY);
+  rectMode(CENTER);
+  noStroke();
+
+  switch (planet.weather.type.toLowerCase()) {
+    case 'sprinkle rain':
+      for (let i = 0; i < 16; i++) {
+        const x = sin(i * 47 + t * 1.8) * radius;
+        const y = ((i * 31 + t * 2.4) % (radius * 2)) - radius;
+        push();
+        translate(x, y);
+        rotate(i * 37);
+        fill(['#ff6b6b', '#ffd166', '#6ee7b7', '#8ec5ff'][i % 4]);
+        rect(0, 0, 5, 13, 3);
+        pop();
+      }
+      break;
+
+    case 'fudge floods':
+      for (let i = 0; i < 5; i++) {
+        const x = (i - 2) * radius * 0.42 + sin(t * 2 + i * 50) * 7;
+        const y = ((t * 2.2 + i * 37) % (radius * 2)) - radius;
+        fill(96, 48, 31, 210);
+        ellipse(x, y, 9, 22);
+      }
+      fill(255, 220, 180, 170);
+      for (let i = 0; i < 3; i++) {
+        const x = sin(t * 1.5 + i * 120) * radius * 0.7;
+        const y = cos(t * 1.2 + i * 100) * radius * 0.7;
+        ellipse(x, y, 5, 5);
+      }
+      break;
+
+    case 'plain skies':
+      noFill();
+      for (let i = 0; i < 8; i++) {
+        const angle = i * 45 + t * 0.8;
+        const x = cos(angle) * radius;
+        const y = sin(angle) * radius;
+        stroke(255, 239, 172, 150 + 100 * sin(t * 4 + i * 60));
+        strokeWeight(2);
+        line(x - 4, y, x + 4, y);
+        line(x, y - 4, x, y + 4);
+      }
+      break;
+
+    case 'whipped cream tornado':
+      noFill();
+      for (let i = 0; i < 3; i++) {
+        stroke(255, 248, 242, 210 - i * 35);
+        strokeWeight(4 - i);
+        const sway = sin(t * 2.5 + i * 60) * 10;
+        arc(sway, 0, radius * (1.2 - i * 0.22), radius * 1.5, t * 3 + i * 100, t * 3 + 225 + i * 100);
+      }
+      break;
+
+    case 'cherry hail':
+      for (let i = 0; i < 8; i++) {
+        const x = sin(i * 75 + t * 0.7) * radius;
+        const y = ((i * 41 + t * 2.8) % (radius * 2)) - radius;
+        fill(213, 42, 69, 230);
+        ellipse(x, y, 12, 11);
+        stroke(96, 145, 79);
+        strokeWeight(2);
+        line(x, y - 5, x + 3, y - 10);
+        noStroke();
+      }
+      break;
+
+    case 'marshmallow mist':
+      fill(255, 245, 235, 185);
+      for (let i = 0; i < 7; i++) {
+        const x = sin(t * 0.7 + i * 52) * radius;
+        const y = cos(t * 0.55 + i * 67) * radius * 0.8;
+        ellipse(x, y, 25 + 5 * sin(t + i * 40), 15 + 3 * cos(t + i * 60));
+      }
+      break;
+  }
+  pop();
 }
 
 function windowResized() {
@@ -271,9 +386,11 @@ function drawInterfaceMarkup(hoveredPlanet) {
   strokeWeight(1);
   rect(cardX, cardY, cardW, cardH, 16);
   noStroke();
+  imageMode(CORNER);
   if (hoveredPlanet.image) {
     image(hoveredPlanet.image, cardX + 11, cardY + 33, 66, 66);
   }
+  drawWeatherAnimation(hoveredPlanet, cardX + 44, cardY + 66, 29);
   textAlign(LEFT, CENTER);
   fill(255);
   textFont("Georgia");
