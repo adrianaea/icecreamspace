@@ -515,9 +515,9 @@ function drawInterfaceMarkup(hoveredPlanet, reading, cosmicMood, showReading, is
 
   if (showReading) {
     const readingCardW = min(360, width - 32);
-    const readingCardH = min(180, height - 350);
+    const readingCardH = 200;
     const readingCardX = (width - readingCardW) / 2;
-    const readingCardY = height - 350;
+    const readingCardY = height - 365;
     rectMode(CORNER);
     fill(13, 20, 32, 225);
     stroke(255, 255, 255, 75);
@@ -532,9 +532,10 @@ function drawInterfaceMarkup(hoveredPlanet, reading, cosmicMood, showReading, is
     textSize(18);
     fill(255, 255, 255, 205);
     text(reading, readingCardX + 16, readingCardY + 50, readingCardW - 32, 48);
-    textSize(16);
+    textSize(14);
+    textLeading(18);
     fill(255, 220, 170, 210);
-    text(cosmicMood, readingCardX + 16, readingCardY + 100, readingCardW - 32, 48);
+    text(cosmicMood, readingCardX + 16, readingCardY + 100, readingCardW - 32, 76);
   }
 
   if (!hoveredPlanet) return;
