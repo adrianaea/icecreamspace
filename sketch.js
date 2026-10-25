@@ -134,7 +134,7 @@ function generateNewSystem() {
     planetFlavors.length > 1
   );
   previousFlavorSelection = selectionKey;
-  const planetValues = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]).slice(0, planetCount);
+  const planetValues = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9, 11]).slice(0, planetCount);
 
   const innerOrbit = min(width, height) * 0.17;
   const outerOrbit = min(width, height) * 0.38;
@@ -276,15 +276,16 @@ function getSystemValue() {
 }
 
 function getSystemDefinition(value) {
-  if (value <= -1000) return 'You are a midnight sundae: intense, mysterious, and unforgettable.';
-  if (value <= -100) return 'Like dark chocolate, you turn quiet reflection into strength.';
+  if (value <= -100) return 'You are a midnight sundae: intense, mysterious, and unforgettable.';
+  if (value <= -50) return 'Like dark chocolate, you turn quiet reflection into strength.';
   if (value <= -10) return 'Your rocky-road spirit finds possibility in every twist.';
   if (value <= -1) return 'You savor small joys, and your calm steadies the room.';
   if (value < 0) return 'A delicate sweetness: one sprinkle of spontaneity brightens your day.';
   if (value === 0) return 'Your cosmic scoop is perfectly poised and open to what comes next.';
   if (value <= 1) return 'Your gentle sweetness makes people feel at home.';
   if (value <= 10) return 'Your berry-bright curiosity brings color wherever you go.';
-  if (value <= 100) return 'A triple-scoop force: generous, bold, and full of momentum.';
+  if (value <= 50) return 'A triple-scoop force: generous, bold, and full of momentum.';
+  if (value <= 100) return 'A cosmic sundae: layered, complex, and unforgettable.';
   return 'You are a galactic banana split: delightfully extravagant, no half-measures.';
 }
 
