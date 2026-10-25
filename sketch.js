@@ -1,4 +1,4 @@
-// Ice Cream Solar System
+//⋆｡‧˚ʚ🧸ɞ˚‧｡⋆
 
 let currentArchetype;
 let activePlanets = [];
@@ -9,7 +9,15 @@ let planetFlavors = [];
 let previousFlavorSelection = "";
 let coneImage;
 let draggingPlanet = null;
+let dragStartX = 0;
+let dragStartY = 0;
+let planetMovedThisDrag = false;
+let coneValue = 0;
+let currentSystemReading = '';
+let currentCosmicMood = '';
+let readingRevealAt = null;
 
+// handmade flavor assets  
 const flavorAssets = [
   { name: "Strawberry", path: "assets/berry.PNG", coreSize: 120 },
   { name: "Cotton Candy", path: "assets/candy.PNG", coreSize: 120 },
@@ -26,13 +34,13 @@ const flavorAssets = [
 // Weather Topping Registry
 const weatherToppings = [
   { type: "Sprinkle Rain", text: "Colorful sprinkles drift through the sky." },
-  { type: "Fudge Floods", text: "Warm chocolate fudge flows in slow rivers." },
-  { type: "Plain Skies", text: "Clear, calm skies with a chance of sunshine." },
+  { type: "Fudge Floods", text: "Warm chocolate fudge flows through the landscape." },
+  { type: "Plain Skies", text: "Clear, calm skies." },
   {
     type: "Whipped Cream Tornado",
     text: "A fluffy swirl is spinning across the horizon.",
   },
-  { type: "Cherry Hail", text: "Cherries fall from the clouds." },
+  { type: "Cherry Hail", text: "Cherries fall heavily from the clouds." },
   {
     type: "Marshmallow Mist",
     text: "Soft marshmallow clouds blanket the surface.",
@@ -66,8 +74,9 @@ function setup() {
   }));
 
   // HTML Interface Element Integration
-  regenerateBtn = createButton("🎲 Shuffle the system");
-  regenerateBtn.position(CENTER, 120);
+  regenerateBtn = createButton("🎲 shuffle");
+  regenerateBtn.position(50 , 70);
+  regenerateBtn.size(90, 60);
   regenerateBtn.addClass("shuffle-button");
   regenerateBtn.mousePressed(() => window.location.reload());
 
@@ -101,6 +110,8 @@ function generateNewSystem() {
   systemTimer = 0;
   textAlpha = 0;
   activePlanets = [];
+  readingRevealAt = null;
+  coneValue = floor(random(-5, 6));
 
   // 1. CHANCE OPERATIONS: Select an underlying cosmic archetype
   let keys = Object.keys(archetypes);
@@ -123,6 +134,7 @@ function generateNewSystem() {
     planetFlavors.length > 1
   );
   previousFlavorSelection = selectionKey;
+  const planetValues = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]).slice(0, planetCount);
 
   const innerOrbit = min(width, height) * 0.17;
   const outerOrbit = min(width, height) * 0.38;
@@ -144,11 +156,15 @@ function generateNewSystem() {
         random(0.12, 0.3) *
         currentArchetype.speedMult *
         (random() < 0.5 ? -1 : 1),
+      value: planetValues[i],
       weather: chosenWeather,
+      locked: false,
       currentX: 0,
       currentY: 0,
     });
   }
+
+  updateSystemReading();
 }
 
 function draw() {
@@ -211,13 +227,106 @@ function draw() {
     pop();
 
     // Drive rotation frames over time smoothly
-    if (draggingPlanet !== p) p.angle += p.speed;
+    if (draggingPlanet !== p && !p.locked) p.angle += p.speed;
   }
 
   // Pull coordinate scope back to top-left mode for typographic layouts
   resetMatrix();
   cursor(hoveredPlanet ? (draggingPlanet ? 'grabbing' : 'grab') : ARROW);
-  drawInterfaceMarkup(hoveredPlanet);
+  const showReading = readingRevealAt !== null && millis() >= readingRevealAt;
+  const isLoadingReading = readingRevealAt !== null && !showReading;
+  drawInterfaceMarkup(
+    hoveredPlanet,
+    currentSystemReading,
+    currentCosmicMood,
+    showReading,
+    isLoadingReading,
+  );
+}
+
+function getPlanetQuadrant(angle) {
+  const normalized = (angle + 360) % 360;
+  if (normalized >= 180 && normalized < 270) return 'topLeft';
+  if (normalized >= 270 || normalized < 0) return 'topRight';
+  if (normalized < 90) return 'bottomRight';
+  return 'bottomLeft';
+}
+
+function getSystemValue() {
+  // Apply planets from the innermost orbit to the outermost orbit.
+  let result = coneValue;
+  const planetsByOrbit = [...activePlanets].sort((a, b) => a.distance - b.distance);
+  for (const planet of planetsByOrbit) {
+    switch (getPlanetQuadrant(planet.angle)) {
+      case 'topLeft':
+        result -= planet.value;
+        break;
+      case 'topRight':
+        result += planet.value;
+        break;
+      case 'bottomLeft':
+        result *= planet.value;
+        break;
+      case 'bottomRight':
+        result /= planet.value;
+        break;
+    }
+  }
+  return result;
+}
+
+function getSystemDefinition(value) {
+  if (value <= -1000) return 'You are a midnight sundae: intense, mysterious, and unforgettable.';
+  if (value <= -100) return 'Like dark chocolate, you turn quiet reflection into strength.';
+  if (value <= -10) return 'Your rocky-road spirit finds possibility in every twist.';
+  if (value <= -1) return 'You savor small joys, and your calm steadies the room.';
+  if (value < 0) return 'A delicate sweetness: one sprinkle of spontaneity brightens your day.';
+  if (value === 0) return 'Your cosmic scoop is perfectly poised and open to what comes next.';
+  if (value <= 1) return 'Your gentle sweetness makes people feel at home.';
+  if (value <= 10) return 'Your berry-bright curiosity brings color wherever you go.';
+  if (value <= 100) return 'A triple-scoop force: generous, bold, and full of momentum.';
+  return 'You are a galactic banana split: delightfully extravagant, no half-measures.';
+}
+
+function getPositionMood() {
+  // Fine angle changes alter a hidden position signature without showing planet values.
+  const moodWords = [
+    'playful', 'dreamy', 'bold', 'curious', 'gentle',
+    'radiant', 'mischievous', 'thoughtful', 'adventurous', 'cozy',
+  ];
+  const flavorQualities = [
+    'creative spark', 'steady focus', 'bright optimism', 'cool calm',
+    'cookie-dough creativity', 'vanilla warmth', 'bold confidence',
+    'rocky-road resilience', 'quiet ambition', 'soft kindness',
+  ];
+  const cosmicAccents = [
+    'a dash of chance', 'a swirl of confidence', 'a sprinkle of patience',
+    'a ripple of optimism', 'a hidden cherry of courage',
+    'a soft cloud of kindness', 'a chocolate-deep resolve',
+    'a bright ribbon of curiosity', 'a surprising twist',
+    'a second scoop of joy',
+  ];
+  const finishingTouches = [
+    'room for joy', 'a sweet surprise', 'extra wonder', 'easy laughter',
+    'the unexpected', 'your own recipe', 'a bright aftertaste',
+    'sweet possibility', 'trusting your instincts', 'more to discover',
+  ];
+
+  const planetsByOrbit = [...activePlanets].sort((a, b) => a.distance - b.distance);
+  const moodIndex = planetsByOrbit.reduce((sum, planet) => {
+    const angleHundredths = Math.round((((planet.angle % 360) + 360) % 360) * 100);
+    return sum + angleHundredths * planet.value;
+  }, 0) % 10000;
+  const moodWord = moodWords[Math.floor(moodIndex / 1000)];
+  const flavorQuality = flavorQualities[Math.floor(moodIndex / 100) % 10];
+  const cosmicAccent = cosmicAccents[Math.floor(moodIndex / 10) % 10];
+  const finishingTouch = finishingTouches[moodIndex % 10];
+  return `In a ${moodWord} mood: ${flavorQuality}; ${cosmicAccent}, ${finishingTouch}.`;
+}
+
+function updateSystemReading() {
+  currentSystemReading = getSystemDefinition(getSystemValue());
+  currentCosmicMood = getPositionMood();
 }
 
 function mousePressed() {
@@ -226,6 +335,9 @@ function mousePressed() {
     const planet = activePlanets[i];
     if (dist(mouseX, mouseY, planet.currentX, planet.currentY) <= planet.size / 2 + 8) {
       draggingPlanet = planet;
+      dragStartX = mouseX;
+      dragStartY = mouseY;
+      planetMovedThisDrag = false;
       cursor('grabbing');
       return false;
     }
@@ -234,6 +346,11 @@ function mousePressed() {
 
 function mouseDragged() {
   if (!draggingPlanet) return;
+
+  if (dist(mouseX, mouseY, dragStartX, dragStartY) > 0.5) {
+    draggingPlanet.locked = true;
+    planetMovedThisDrag = true;
+  }
 
   // Keep the planet on its own orbit and move it to the pointer's angle.
   const dx = mouseX - width / 2;
@@ -245,7 +362,14 @@ function mouseDragged() {
 }
 
 function mouseReleased() {
+  if (planetMovedThisDrag) {
+    updateSystemReading();
+    readingRevealAt = activePlanets.every((planet) => planet.locked)
+      ? millis() + 1000
+      : null;
+  }
   draggingPlanet = null;
+  planetMovedThisDrag = false;
   cursor(ARROW);
 }
 
@@ -361,18 +485,56 @@ function drawStarfield() {
   }
 }
 
-function drawInterfaceMarkup(hoveredPlanet) {
+function drawInterfaceMarkup(hoveredPlanet, reading, cosmicMood, showReading, isLoadingReading) {
   noStroke();
   textAlign(CENTER, CENTER);
-  fill(255);
+  fill('#fffacd');
   textFont("Georgia");
-  textSize(25);
-  text("Ice Cream Solar System", width / 2, 38);
+  textSize(42);
+  text("⋆˙⟡ Scoopography ⏾⋆.˚⊹", width / 2, 68);
+  //⋅˚.⋆☾⁺₊ ‧ 
 
   textFont("Arial");
-  textSize(13);
+  textSize(16);
   fill(255, 255, 255, 190);
-  text("Hover over a planet!", width / 2, 63);
+  text("Drag every planet, then wait for your reading.", width / 2, 100);
+
+  if (isLoadingReading) {
+    noFill();
+    stroke(255, 220, 170, 220);
+    strokeWeight(2);
+    arc(width / 2, height - 250, 24, 24, frameCount * 8, frameCount * 8 + 240);
+    noStroke();
+    textAlign(CENTER, CENTER);
+    textFont('Arial');
+    textSize(18);
+    fill(255, 255, 255, 205);
+    text('Reading your cosmic arrangement...', width / 2, height - 210);
+  }
+
+  if (showReading) {
+    const readingCardW = min(360, width - 32);
+    const readingCardH = min(180, height - 350);
+    const readingCardX = (width - readingCardW) / 2;
+    const readingCardY = height - 350;
+    rectMode(CORNER);
+    fill(13, 20, 32, 225);
+    stroke(255, 255, 255, 75);
+    strokeWeight(1);
+    rect(readingCardX, readingCardY, readingCardW, readingCardH, 16);
+    textAlign(CENTER, CENTER);
+    textFont("Georgia");
+    textSize(22);
+    fill(255, 225, 170);
+    text('Flavor Reading', width / 2, readingCardY + 23);
+    textFont('Arial');
+    textSize(18);
+    fill(255, 255, 255, 205);
+    text(reading, readingCardX + 16, readingCardY + 50, readingCardW - 32, 48);
+    textSize(16);
+    fill(255, 220, 170, 210);
+    text(cosmicMood, readingCardX + 16, readingCardY + 100, readingCardW - 32, 48);
+  }
 
   if (!hoveredPlanet) return;
 
@@ -394,15 +556,15 @@ function drawInterfaceMarkup(hoveredPlanet) {
   textAlign(LEFT, CENTER);
   fill(255);
   textFont("Georgia");
-  textSize(19);
+  textSize(22);
   text(hoveredPlanet.flavor, cardX + 88, cardY + 35);
   fill(255, 220, 150);
   textFont("Arial");
-  textSize(14);
+  textSize(16);
   text(hoveredPlanet.weather.type, cardX + 88, cardY + 62);
   fill(235, 240, 248);
-  textSize(12);
-  text(hoveredPlanet.weather.text, cardX + 88, cardY + 91, cardW - 104, 34);
+  textSize(15);
+  text(hoveredPlanet.weather.text, cardX + 88, cardY + 80, cardW - 104, 44);
 }
 
 function windowResized() {
